@@ -1,11 +1,11 @@
 /**
  * Secret Phrase 暗语派生（与 open-ledger-app 的 Rust 实现字节级一致）
  *
- * 暗语文本按所选 BIP-39 词表语言切分 → 逐 token 查词表索引（最多 48 个）
+ * 暗语文本按所选 BIP-39 词表语言切分 → 逐 token 查词表索引（最多 1024 个）
  * → 每个索引 2 字节大端拼接 → keccak256(熵字节) 与 keccak256(密钥) 再哈希
  * → 32 字节熵 → 24 词英文 BIP-39 助记词。
  *
- * 权威实现：open-ledger-app 的 Rust 派生模块。
+ * 权威实现：open-ledger-app 的 Rust 派生模块（命中词上限与本工具一致）。
  */
 import { entropyToMnemonic } from '@scure/bip39';
 import { wordlist as EN } from '@scure/bip39/wordlists/english.js';
@@ -36,7 +36,7 @@ const CJK_LANGUAGES = new Set<WordlistLanguage>(['zh-Hans', 'zh-Hant', 'ja']);
 /** 每个索引固定 2 字节（u16 大端）。 */
 const BYTES_PER_WORD = 2;
 /** 最多参与熵的命中词数（与 Rust MAX_INDICES 一致）。 */
-export const MAX_INDICES = 48;
+export const MAX_INDICES = 1024;
 /** 暗语长度上限（字符数），超出部分忽略。 */
 export const MAX_RIDDLE_CHARS = 1024;
 

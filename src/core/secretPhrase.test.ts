@@ -111,8 +111,36 @@ describe('Secret Phrase 暗语派生（与设备端 Rust 测试向量一致）',
     expect(chinese).not.toBe(english);
   });
 
-  it('命中词数统计不超过 48', () => {
-    const riddle = Array.from({ length: 60 }, () => 'abandon').join(' ');
-    expect(countMatchedTokens(riddle, 'en')).toBe(48);
+  it('命中词数上限为 1024（同时受 1024 字符截断）', () => {
+    const english = Array.from({ length: 60 }, () => 'abandon').join(' ');
+    expect(countMatchedTokens(english, 'en')).toBe(60);
+    expect(countMatchedTokens('床'.repeat(1100), 'zh-Hans')).toBe(1024);
+  });
+
+  it('超过 48 个命中词时，前 1024 个全部参与熵', () => {
+    const riddle =
+      '君不见黄河之水天上来，奔流到海不复回。君不见高堂明镜悲白发，朝如青丝暮成雪。人生得意须尽欢，莫使金樽空对月。天生我材必有用，千金散尽还复来。烹羊宰牛且为乐，会须一饮三百杯。岑夫子，丹丘生，将进酒，杯莫停。与君歌一曲，请君为我倾耳听。钟鼓馔玉不足贵，但愿长醉不复醒。古来圣贤皆寂寞，惟有饮者留其名。陈王昔时宴平乐，斗酒十千恣欢谑。主人何为言少钱，径须沽取对君酌。五花马，千金裘，呼儿将出换美酒，与尔同销万古愁。';
+
+    const tokens = matchTokens(riddle, 'zh-Hans');
+    expect(tokens).toHaveLength(159);
+
+    const full = deriveEntropy(riddle, '1234', 'zh-Hans');
+    expect(bytesToHex(full)).toBe(
+      '5dd9a7bb11f2a10f355b69774a17278a056e4a0aa8590aa0ffb5aa0b991bc8ce',
+    );
+    expect(entropyToEnglishMnemonic(full)).toBe(
+      'fruit snake uphold catalog claw maple step honey jar expose size beef finger celery click arctic apple among uniform favorite ridge mistake case soda',
+    );
+
+    // 第 49 个命中词起也参与熵，因此与只取前 48 个的结果不同
+    const first48 = deriveEntropy(tokens.slice(0, 48).join(''), '1234', 'zh-Hans');
+    expect(bytesToHex(first48)).not.toBe(bytesToHex(full));
+
+    // 前 48 个索引与历史上限版本的向量一致（前缀不变）
+    expect(tokensToIndices(tokens, 'zh-Hans').slice(0, 48)).toEqual([
+      1135, 4, 228, 511, 550, 65, 76, 116, 13, 21, 1464, 216, 25, 275, 4, 390, 253, 1135, 4,
+      228, 78, 1017, 143, 1341, 1506, 313, 37, 577, 75, 412, 708, 33, 1085, 8, 24, 61, 166,
+      393, 662, 819, 1298, 95, 283, 354, 32, 168, 116, 24,
+    ]);
   });
 });
