@@ -1,7 +1,7 @@
 {
   "name": "open-ledger-secret-phrase-wallet-manager",
   "version": "0.1.0",
-  "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
