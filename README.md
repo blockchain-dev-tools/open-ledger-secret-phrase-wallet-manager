@@ -1,3 +1,5 @@
+**中文** · [English](./README.en.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md) · [Español](./README.es.md) · [Français](./README.fr.md)
+
 # Open Ledger · Secret Phrase Wallet Manager
 
 用一句只有你记得的暗语，确定性地生成一组标准 24 词 BIP-39 助记词。
