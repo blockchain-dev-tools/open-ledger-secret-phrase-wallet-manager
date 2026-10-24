@@ -11,7 +11,15 @@ import {
   type WordlistLanguage,
 } from './core/secretPhrase';
 import { deriveAccounts, type ChainId, type DerivedAccount } from './core/derive';
-import { evaluatePasswordStrength } from './core/strength';
+import { evaluatePasswordStrength, type StrengthLevel } from './core/strength';
+import {
+  UI_LANGS,
+  createTranslator,
+  detectLang,
+  type DictKey,
+  type TFunction,
+  type UiLang,
+} from './i18n';
 
 const LANGUAGE_OPTIONS: Array<{ value: WordlistLanguage; label: string }> = [
   { value: 'zh-Hans', label: '简体中文' },
@@ -26,14 +34,29 @@ interface PhraseResult {
   mnemonic: string;
   altMnemonic: string;
   entropyHex: string;
-  matched: number;
 }
 
-const STATUS_TEXT: Record<Status, string> = {
-  idle: '等待输入',
-  working: '派生中',
-  ready: '已派生 · 仅本地',
-  error: '派生失败',
+const STRENGTH_LABELS: Record<StrengthLevel, DictKey> = {
+  veryWeak: 'strengthVeryWeak',
+  weak: 'strengthWeak',
+  fair: 'strengthFair',
+  strong: 'strengthStrong',
+  veryStrong: 'strengthVeryStrong',
+};
+
+const STRENGTH_HINTS: Record<StrengthLevel, DictKey> = {
+  veryWeak: 'strengthHintVeryWeak',
+  weak: 'strengthHintWeak',
+  fair: 'strengthHintFair',
+  strong: 'strengthHintStrong',
+  veryStrong: 'strengthHintVeryStrong',
+};
+
+const STATUS_KEYS: Record<Status, DictKey> = {
+  idle: 'statusIdle',
+  working: 'statusWorking',
+  ready: 'statusReady',
+  error: 'statusError',
 };
 
 export default function App() {
@@ -41,6 +64,8 @@ export default function App() {
   const [secret, setSecret] = useState('');
   const [passphrase, setPassphrase] = useState('');
   const [lang, setLang] = useState<WordlistLanguage>('zh-Hans');
+  const [uiLang, setUiLang] = useState<UiLang>(detectLang);
+  const t = useMemo(() => createTranslator(uiLang), [uiLang]);
 
   const [showSecret, setShowSecret] = useState(false);
   const [showPassphrase, setShowPassphrase] = useState(false);
@@ -60,6 +85,13 @@ export default function App() {
 
   const strength = useMemo(() => evaluatePasswordStrength(secret), [secret]);
 
+  useEffect(() => {
+    document.documentElement.lang = uiLang;
+    document.title = t('title');
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', t('description'));
+  }, [uiLang, t]);
+
   const hasInput = riddle.trim() !== '' || secret !== '';
 
   // 助记词只由「暗语 + 密码 + 词表语言」决定，与 passphrase 无关。
@@ -70,7 +102,6 @@ export default function App() {
       mnemonic: entropyToEnglishMnemonic(entropy),
       altMnemonic: entropyToMnemonicIn(entropy, lang),
       entropyHex: bytesToHex(entropy),
-      matched: countMatchedTokens(riddle, lang),
     };
   }, [riddle, secret, lang, hasInput]);
 
@@ -171,18 +202,29 @@ export default function App() {
 
   return (
     <div className="page">
+      <div className="lang-bar">
+        <div className="segmented" role="group" aria-label={t('uiLang')}>
+          {UI_LANGS.map((option) => (
+            <button
+              key={option.code}
+              type="button"
+              aria-pressed={uiLang === option.code}
+              onClick={() => setUiLang(option.code)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <header className="masthead">
         <div className="masthead-copy">
           <p className="eyebrow">Open Ledger · Secret Phrase Wallet Manager</p>
           <h1>
             SECRET PHRASE
-            <span>暗语钱包生成器</span>
+            <span>{t('subtitle')}</span>
           </h1>
-          <p className="lede">
-            先用暗语与密钥在本机派生出确定性的 24 词 BIP-39 助记词，再在助记词下方按需加入
-            BIP-39 passphrase，派生五条链的地址与私钥。暗语（Secret Phrase）算法与 Open
-            Ledger 设备端实现字节级一致。
-          </p>
+          <p className="lede">{t('lede')}</p>
         </div>
         <div className="stamp" aria-hidden="true">
           <span>100%</span>
@@ -192,19 +234,19 @@ export default function App() {
       </header>
 
       <div className="workspace">
-        <section className="panel form-panel" aria-label="输入">
+        <section className="panel form-panel" aria-label={t('inputLabel')}>
           <div className="panel-head">
-            <span className="panel-index">输入 / INPUT</span>
+            <span className="panel-index">{t('inputLabel')}</span>
             <span className={`status status-${status}`}>
               <i aria-hidden="true" />
-              {STATUS_TEXT[status]}
+              {t(STATUS_KEYS[status])}
             </span>
           </div>
 
           <div className="field">
             <div className="field-head">
-              <label htmlFor="riddle">暗语</label>
-              <span className="field-en">SECRET PHRASE · 决定助记词</span>
+              <label htmlFor="riddle">{t('phraseLabel')}</label>
+              <span className="field-en">{t('phraseFieldEn')}</span>
             </div>
             <textarea
               id="riddle"
@@ -213,11 +255,11 @@ export default function App() {
               rows={4}
               spellCheck={false}
               autoComplete="off"
-              placeholder="床前明月光，疑是地上霜。"
+              placeholder={t('phrasePlaceholder')}
             />
             <div className="field-meta">
-              <span className="field-meta-label">词表语言</span>
-              <div className="segmented" role="group" aria-label="暗语词表语言">
+              <span className="field-meta-label">{t('wordlistLanguage')}</span>
+              <div className="segmented" role="group" aria-label={t('ariaWordlistLanguage')}>
                 {LANGUAGE_OPTIONS.map((option) => (
                   <button
                     key={option.value}
@@ -230,16 +272,13 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <p className="hint">
-              已命中词表 <strong>{matchedTokens}</strong>/{MAX_INDICES} 个 token；
-              未命中词表的字符会被忽略，只有前 {MAX_INDICES} 个命中 token 参与熵。
-            </p>
+            <p className="hint">{t('matchedHint', { matched: matchedTokens, max: MAX_INDICES })}</p>
           </div>
 
           <div className="field">
             <div className="field-head">
-              <label htmlFor="secret">密码</label>
-              <span className="field-en">SECRET KEY · 参与助记词派生</span>
+              <label htmlFor="secret">{t('secretLabel')}</label>
+              <span className="field-en">{t('secretFieldEn')}</span>
             </div>
             <div className="input-wrap">
               <input
@@ -249,15 +288,15 @@ export default function App() {
                 onChange={(event) => setSecret(event.target.value)}
                 spellCheck={false}
                 autoComplete="off"
-                placeholder="与暗语一起决定助记词"
+                placeholder={t('secretPlaceholder')}
               />
               <button
                 type="button"
                 className="ghost"
                 onClick={() => setShowSecret((value) => !value)}
-                aria-label={showSecret ? '隐藏密码' : '显示密码'}
+                aria-label={t(showSecret ? 'ariaHideSecret' : 'ariaShowSecret')}
               >
-                {showSecret ? '隐藏' : '显示'}
+                {t(showSecret ? 'hide' : 'show')}
               </button>
             </div>
 
@@ -266,39 +305,39 @@ export default function App() {
                 <div
                   className="strength-track"
                   role="img"
-                  aria-label={`密码强度：${strength.label}`}
+                  aria-label={t('ariaPasswordStrength', { label: t(STRENGTH_LABELS[strength.level]) })}
                 >
                   {[1, 2, 3, 4].map((level) => (
                     <i key={level} className={level <= strength.score ? 'is-on' : ''} />
                   ))}
                 </div>
                 <div className="strength-meta">
-                  <span className="strength-label">强度：{strength.label}</span>
-                  <span className="strength-bits">约 {strength.bits} bit</span>
+                  <span className="strength-label">
+                    {t('strengthLabel', { label: t(STRENGTH_LABELS[strength.level]) })}
+                  </span>
+                  <span className="strength-bits">{t('strengthBits', { bits: strength.bits })}</span>
                 </div>
-                <p className="hint">{strength.hint}</p>
+                <p className="hint">{t(STRENGTH_HINTS[strength.level])}</p>
               </div>
             )}
           </div>
 
           <div className="form-actions">
             <button type="button" className="btn btn-solid" onClick={fillExample}>
-              填入示例
+              {t('fillExample')}
             </button>
             <button type="button" className="btn" onClick={resetAll}>
-              清空
+              {t('clear')}
             </button>
           </div>
 
-          <p className="local-note">
-            输入不会写入本地存储，也不会发出任何网络请求；刷新页面即清空。
-          </p>
+          <p className="local-note">{t('localNote')}</p>
         </section>
 
         <section className="results" aria-live="polite" aria-busy={status === 'working'}>
           {error && (
             <div className="error-card" role="alert">
-              <strong>派生失败</strong>
+              <strong>{t('derivationFailed')}</strong>
               <p>{error}</p>
             </div>
           )}
@@ -308,8 +347,8 @@ export default function App() {
               <div className="empty-mark" aria-hidden="true">
                 ⌘
               </div>
-              <p>输入暗语与密码后，24 词助记词会先出现在这里。</p>
-              <p className="empty-sub">助记词生成后，可在其下方加入 BIP-39 Passphrase 派生地址。</p>
+              <p>{t('emptyTitle')}</p>
+              <p className="empty-sub">{t('emptySub')}</p>
             </div>
           )}
 
@@ -318,15 +357,15 @@ export default function App() {
               <article className="card mnemonic-card">
                 <div className="card-head">
                   <div>
-                    <span className="card-kicker">01 · 助记词</span>
-                    <h2>24 词 · English BIP-39</h2>
+                    <span className="card-kicker">{t('mnemonicKicker')}</span>
+                    <h2>{t('mnemonicTitle')}</h2>
                   </div>
                   <button
                     type="button"
                     className="btn"
                     onClick={() => void copyValue('mnemonic', phrase.mnemonic)}
                   >
-                    {copied === 'mnemonic' ? '已复制' : '复制助记词'}
+                    {t(copied === 'mnemonic' ? 'copied' : 'copyMnemonic')}
                   </button>
                 </div>
 
@@ -341,8 +380,8 @@ export default function App() {
 
                 <div className="passphrase-panel">
                   <div className="field-head">
-                    <label htmlFor="passphrase">BIP-39 Passphrase</label>
-                    <span className="field-en">可选 · 只影响地址与私钥</span>
+                    <label htmlFor="passphrase">{t('passphraseLabel')}</label>
+                    <span className="field-en">{t('passphraseFieldEn')}</span>
                   </div>
                   <div className="input-wrap">
                     <input
@@ -352,40 +391,35 @@ export default function App() {
                       onChange={(event) => setPassphrase(event.target.value)}
                       spellCheck={false}
                       autoComplete="off"
-                      placeholder="留空表示不使用"
+                      placeholder={t('passphrasePlaceholder')}
                     />
                     <button
                       type="button"
                       className="ghost"
                       onClick={() => setShowPassphrase((value) => !value)}
-                      aria-label={showPassphrase ? '隐藏 passphrase' : '显示 passphrase'}
+                      aria-label={t(showPassphrase ? 'ariaHidePassphrase' : 'ariaShowPassphrase')}
                     >
-                      {showPassphrase ? '隐藏' : '显示'}
+                      {t(showPassphrase ? 'hide' : 'show')}
                     </button>
                   </div>
-                  <p className="hint">
-                    助记词保持不变；填入或修改后，下方五链地址与私钥会重新派生。
-                  </p>
+                  <p className="hint">{t('passphraseHint')}</p>
                 </div>
 
-                <div className="card-foot">
-                  <span>
-                    命中 {phrase.matched}/{MAX_INDICES} · 暗语词表 {LANGUAGE_LABELS[lang]}
-                  </span>
-                  {lang !== 'en' && (
+                {lang !== 'en' && (
+                  <div className="card-foot">
                     <button
                       type="button"
                       className="link"
                       onClick={() => setShowAlt((value) => !value)}
                     >
-                      {showAlt ? '隐藏同熵展示' : `以${LANGUAGE_LABELS[lang]}词表展示`}
+                      {showAlt ? t('hideAlt') : t('showAlt', { lang: LANGUAGE_LABELS[lang] })}
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {showAlt && lang !== 'en' && (
                   <div className="alt-mnemonic">
-                    <span>同一份熵 · {LANGUAGE_LABELS[lang]}词表 · 仅用于展示</span>
+                    <span>{t('altNote', { lang: LANGUAGE_LABELS[lang] })}</span>
                     <ol className="word-grid alt">
                       {phrase.altMnemonic.split(' ').map((word, index) => (
                         <li className="word" key={`alt-${word}-${index}`}>
@@ -403,9 +437,9 @@ export default function App() {
               <article className="card accounts-card">
                 <div className="card-head">
                   <div>
-                    <span className="card-kicker">02 · 账户</span>
-                    <h2>地址与私钥 · 五条链</h2>
-                    <p className="card-sub">随上方 BIP-39 Passphrase 变化实时重算</p>
+                    <span className="card-kicker">{t('accountsKicker')}</span>
+                    <h2>{t('accountsTitle')}</h2>
+                    <p className="card-sub">{t('accountsSub')}</p>
                   </div>
                   <button
                     type="button"
@@ -413,13 +447,13 @@ export default function App() {
                     onClick={toggleAllKeys}
                     disabled={accounts.length === 0}
                   >
-                    {allRevealed ? '隐藏全部私钥' : '显示全部私钥'}
+                    {t(allRevealed ? 'hideAllKeys' : 'showAllKeys')}
                   </button>
                 </div>
 
                 {accounts.length === 0 ? (
                   <p className="derive-placeholder">
-                    {accountsStatus === 'error' ? '派生失败' : '正在派生五条链地址…'}
+                    {t(accountsStatus === 'error' ? 'derivationFailed' : 'derivingAccounts')}
                   </p>
                 ) : (
                   <div
@@ -433,6 +467,7 @@ export default function App() {
                         copied={copied}
                         onToggle={() => toggleKey(account.id)}
                         onCopy={copyValue}
+                        t={t}
                       />
                     ))}
                   </div>
@@ -440,36 +475,32 @@ export default function App() {
               </article>
 
               <details className="card details-card">
-                <summary>派生详情</summary>
+                <summary>{t('detailsSummary')}</summary>
                 <dl>
                   <div>
-                    <dt>暗语熵</dt>
+                    <dt>{t('entropyLabel')}</dt>
                     <dd>
                       <code>{phrase.entropyHex}</code>
                     </dd>
                   </div>
                   <div>
-                    <dt>算法</dt>
-                    <dd>
-                      keccak256(keccak256(索引字节) ‖ keccak256(密码)) → 24 词英文 BIP-39
-                    </dd>
+                    <dt>{t('algorithmLabel')}</dt>
+                    <dd>{t('algorithmNote')}</dd>
                   </div>
                   <div>
-                    <dt>Passphrase</dt>
-                    <dd>{passphrase ? '已启用（影响种子与地址）' : '未使用'}</dd>
+                    <dt>{t('passphraseStateLabel')}</dt>
+                    <dd>{t(passphrase ? 'passphraseEnabled' : 'passphraseDisabled')}</dd>
                   </div>
                 </dl>
               </details>
 
               <aside className="notice">
-                <h3>使用须知</h3>
+                <h3>{t('noticeTitle')}</h3>
                 <ul>
-                  <li>暗语、密码、passphrase 与私钥都只存在于当前页面内存，刷新即消失。</li>
-                  <li>
-                    暗语与密码的强度决定钱包安全：弱输入可被暴力枚举，本工具只提供启发式提示。
-                  </li>
-                  <li>助记词与私钥等同资产所有权，请勿截图、联网粘贴或发送给任何人。</li>
-                  <li>在设备端恢复时，需要同时提供暗语、密码、词表语言与 passphrase。</li>
+                  <li>{t('notice1')}</li>
+                  <li>{t('notice2')}</li>
+                  <li>{t('notice3')}</li>
+                  <li>{t('notice4')}</li>
                 </ul>
               </aside>
             </div>
@@ -479,7 +510,7 @@ export default function App() {
 
       <footer className="foot">
         <span>Open Ledger · Secret Phrase Wallet Manager</span>
-        <span>算法与设备端暗语实现字节级一致</span>
+        <span>{t('footerRight')}</span>
       </footer>
     </div>
   );
@@ -491,9 +522,10 @@ interface ChainCardProps {
   copied: string | null;
   onToggle: () => void;
   onCopy: (id: string, value: string) => Promise<void>;
+  t: TFunction;
 }
 
-function ChainCard({ account, revealed, copied, onToggle, onCopy }: ChainCardProps) {
+function ChainCard({ account, revealed, copied, onToggle, onCopy, t }: ChainCardProps) {
   const addressCopyId = `${account.id}-address`;
   const keyCopyId = `${account.id}-key`;
 
@@ -513,13 +545,13 @@ function ChainCard({ account, revealed, copied, onToggle, onCopy }: ChainCardPro
 
       <div className="kv">
         <div className="kv-head">
-          <span>地址</span>
+          <span>{t('address')}</span>
           <button
             type="button"
             className="mini"
             onClick={() => void onCopy(addressCopyId, account.address)}
           >
-            {copied === addressCopyId ? '已复制' : '复制'}
+            {t(copied === addressCopyId ? 'copied' : 'copy')}
           </button>
         </div>
         <code className="kv-value">{account.address}</code>
@@ -528,18 +560,18 @@ function ChainCard({ account, revealed, copied, onToggle, onCopy }: ChainCardPro
       <div className="kv">
         <div className="kv-head">
           <span>
-            私钥 <em>{account.privateKeyLabel}</em>
+            {t('privateKey')} <em>{account.privateKeyLabel}</em>
           </span>
           <div className="kv-actions">
             <button type="button" className="mini" onClick={onToggle} aria-pressed={revealed}>
-              {revealed ? '隐藏' : '显示'}
+              {t(revealed ? 'hide' : 'show')}
             </button>
             <button
               type="button"
               className="mini"
               onClick={() => void onCopy(keyCopyId, account.privateKey)}
             >
-              {copied === keyCopyId ? '已复制' : '复制'}
+              {t(copied === keyCopyId ? 'copied' : 'copy')}
             </button>
           </div>
         </div>

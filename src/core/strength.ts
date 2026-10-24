@@ -4,10 +4,11 @@
  * 按使用的字符池大小 × 长度估算暴力枚举难度，并对单一字符重复做降权。
  * 结果只是启发式参考：真正决定安全性的仍是攻击者掌握的先验信息。
  */
+export type StrengthLevel = 'veryWeak' | 'weak' | 'fair' | 'strong' | 'veryStrong';
+
 export interface PasswordStrength {
   score: 1 | 2 | 3 | 4;
-  label: string;
-  hint: string;
+  level: StrengthLevel;
   bits: number;
 }
 
@@ -33,41 +34,16 @@ export function evaluatePasswordStrength(password: string): PasswordStrength | n
   bits = Math.round(bits);
 
   if (bits < 28) {
-    return {
-      score: 1,
-      label: '很弱',
-      hint: '太短或太单一，容易被离线枚举。建议至少 12 位并混合大小写、数字与符号。',
-      bits,
-    };
+    return { score: 1, level: 'veryWeak', bits };
   }
   if (bits < 40) {
-    return {
-      score: 2,
-      label: '弱',
-      hint: '仍然偏弱；增加长度通常比堆特殊符号更有效。',
-      bits,
-    };
+    return { score: 2, level: 'weak', bits };
   }
   if (bits < 60) {
-    return {
-      score: 3,
-      label: '中等',
-      hint: '可用，但建议再增加几位，以抵抗离线暴力枚举。',
-      bits,
-    };
+    return { score: 3, level: 'fair', bits };
   }
   if (bits < 80) {
-    return {
-      score: 4,
-      label: '强',
-      hint: '强度良好；请确保你能稳定记住它，且不会与其他密码复用。',
-      bits,
-    };
+    return { score: 4, level: 'strong', bits };
   }
-  return {
-    score: 4,
-    label: '极强',
-    hint: '强度很高；请确保你能稳定记住它，且不会与其他密码复用。',
-    bits,
-  };
+  return { score: 4, level: 'veryStrong', bits };
 }

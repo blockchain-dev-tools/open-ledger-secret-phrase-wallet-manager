@@ -69,6 +69,20 @@ button {
   padding: 44px 0 36px;
 }
 
+/* ── 语言切换 ────────────────────────────────────────────────────────── */
+
+.lang-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+
+.lang-bar .segmented button {
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
 /* ── 报头 ────────────────────────────────────────────────────────────── */
 
 .masthead {

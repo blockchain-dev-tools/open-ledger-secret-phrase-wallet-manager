@@ -10,7 +10,7 @@ describe('密码强度估算', () => {
   it('短数字密码为很弱', () => {
     const result = evaluatePasswordStrength('1234');
     expect(result?.score).toBe(1);
-    expect(result?.label).toBe('很弱');
+    expect(result?.level).toBe('veryWeak');
   });
 
   it('纯重复字符被降权', () => {
